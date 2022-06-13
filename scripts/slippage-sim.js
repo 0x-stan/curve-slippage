@@ -12,7 +12,7 @@ const {
 const StableSwapABI = require("../abis/StableSwapABI.json");
 const stETHTokenABI = require("../abis/stETHTokenABI.json");
 
-const BUY_AMOUNT = parseEther("200")
+const BUY_AMOUNT = parseEther("1000")
 const LOG_DIR = "./data/slippageLog.csv"
 
 const stETHPooladdress = "0xDC24316b9AE028F1497c275EB9192a3Ea0f67022";
@@ -76,7 +76,7 @@ async function main() {
       fs.writeFileSync(LOG_DIR, logStr + "\n", { flag: "a+" })
       if (
         (await stETHToken.balanceOf(userAddr)).lt(BUY_AMOUNT) ||
-        poolb0.lt(parseEther("32000"))
+        poolb0.lt(parseEther("3200"))
       ) {
         // console.log("seller hasn't enought stETH: ", await stETHToken.balanceOf(userAddr))
         console.log("exchange break.")
