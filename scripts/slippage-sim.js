@@ -12,7 +12,7 @@ const {
 const StableSwapABI = require("../abis/StableSwapABI.json");
 const stETHTokenABI = require("../abis/stETHTokenABI.json");
 
-const SELL_AMOUNT = parseEther("1000")
+const BUY_AMOUNT = parseEther("200")
 const LOG_DIR = "./data/slippageLog.csv"
 
 const stETHPooladdress = "0xDC24316b9AE028F1497c275EB9192a3Ea0f67022";
@@ -30,7 +30,7 @@ let stETHPool = new ethers.Contract(stETHPooladdress, StableSwapABI);
 
 async function main() {
   if (!fs.existsSync(LOG_DIR)) {
-    fs.writeFileSync(LOG_DIR, "dyPerOne,dy,poolb0,poolb1,ethPersent(100.00%)\n", { flag: "w" })
+    fs.writeFileSync(LOG_DIR, "price,dy,poolb0,poolb1,ethPercent\n", { flag: "w" })
   } else {
     console.log(`Already have simulation data. If you want to reload data, delete ${LOG_DIR} and rerun this script.`)
     return
@@ -53,7 +53,7 @@ async function main() {
   await stETHToken.approve(stETHPool.address, MaxUint256, { gasLimit: 800000 });
 
   try {
-    let dyPerOne, dy, poolb0, poolb1;
+    let price, dy, poolb0, poolb1;
 
     // // rebalance pool: put ETH in take stETH
     // // almost 50% 50%
@@ -69,13 +69,16 @@ async function main() {
     console.log()
 
     while (poolb0.gt(parseEther("1"))) {
-      [dyPerOne, dy, poolb0, poolb1] = await doExchange();
-      let ethPersent = poolb0.mul(parseEther("1")).div(poolb0.add(poolb1)).div(parseEther("0.0001")) // 100.00%
-      let logStr = `${dyPerOne.toString()},${dy.toString()},${poolb0.toString()},${poolb1.toString()},${ethPersent.toString()}`
+      [price, dy, poolb0, poolb1] = await doExchange();
+      let ethPercent = poolb0.mul(parseEther("1")).div(poolb0.add(poolb1)).div(parseEther("0.0001")) // 100.00%
+      let logStr = `${price.toString()},${dy.toString()},${poolb0.toString()},${poolb1.toString()},${ethPercent.toString()}`
       console.log(logStr);
       fs.writeFileSync(LOG_DIR, logStr + "\n", { flag: "a+" })
-      if ((await stETHToken.balanceOf(userAddr)).lt(SELL_AMOUNT)) {
-        console.log("seller hasn't enought stETH: ", await stETHToken.balanceOf(userAddr))
+      if (
+        (await stETHToken.balanceOf(userAddr)).lt(BUY_AMOUNT) ||
+        poolb0.lt(parseEther("32000"))
+      ) {
+        // console.log("seller hasn't enought stETH: ", await stETHToken.balanceOf(userAddr))
         console.log("exchange break.")
         break;
       }
@@ -89,7 +92,7 @@ async function main() {
 
   async function doExchange() {
     const tx = await (
-      await stETHPool.exchange(1, 0, SELL_AMOUNT, 0, {
+      await stETHPool.exchange(1, 0, BUY_AMOUNT, 0, {
         gasLimit: 800000,
       })
     ).wait();
@@ -99,11 +102,11 @@ async function main() {
       tx.blockNumber
     );
     let dy = events[events.length - 1].args.tokens_bought;
-    // get dy per 1stETH from function get_dy
-    let dyPerOne = await stETHPool.get_dy(1, 0, parseEther("1"))
-
     let [poolb0, poolb1] = await checkPoolBalances();
-    return [dyPerOne, dy, poolb0, poolb1];
+    // get dy per 1stETH from function get_dy
+    let price = (await stETHPool.get_dy(1, 0, parseEther("0.000001")))
+
+    return [price, dy, poolb0, poolb1];
   }
 
   async function checkPoolBalances() {
