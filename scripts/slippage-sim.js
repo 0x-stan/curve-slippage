@@ -40,7 +40,7 @@ async function main() {
 
   const [user0] = await ethers.getSigners();
   const userAddr = await user0.getAddress();
-  await setBalance(userAddr);
+  await setBalance(userAddr, parseEther("1000000"));
 
   // prepare stETH token
   for (let i = 0; i < stETHWhales.length; i++) {
@@ -56,6 +56,12 @@ async function main() {
     let dyPerOne, dy, poolb0, poolb1;
     [poolb0, poolb1] = await checkPoolBalances();
 
+    // rebalance pool: put ETH in take stETH
+    // almost 50% 50%
+    const _amount = parseEther("186234");
+    await stETHPool.exchange(0, 1, _amount, 0, { gasLimit: 800000, value: _amount});
+    [poolb0, poolb1] = await checkPoolBalances();
+    console.log("try to rebalance pool: ", poolb0, poolb1)
 
     while (poolb0.gt(parseEther("1"))) {
       [dyPerOne, dy, poolb0, poolb1] = await doExchange();
