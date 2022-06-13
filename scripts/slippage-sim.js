@@ -30,7 +30,7 @@ let stETHPool = new ethers.Contract(stETHPooladdress, StableSwapABI);
 
 async function main() {
   if (!fs.existsSync(LOG_DIR)) {
-    fs.writeFileSync(LOG_DIR, "dyPerOne,dy,poolb0,poolb1\n", { flag: "w" })
+    fs.writeFileSync(LOG_DIR, "dyPerOne,dy,poolb0,poolb1,ethPersent(100.00%)\n", { flag: "w" })
   } else {
     console.log(`Already have simulation data. If you want to reload data, delete ${LOG_DIR} and rerun this script.`)
     return
@@ -40,7 +40,7 @@ async function main() {
 
   const [user0] = await ethers.getSigners();
   const userAddr = await user0.getAddress();
-  await setBalance(userAddr, parseEther("1000000"));
+  await setBalance(userAddr, parseEther("1100000"));
 
   // prepare stETH token
   for (let i = 0; i < stETHWhales.length; i++) {
@@ -54,18 +54,24 @@ async function main() {
 
   try {
     let dyPerOne, dy, poolb0, poolb1;
-    [poolb0, poolb1] = await checkPoolBalances();
 
-    // rebalance pool: put ETH in take stETH
-    // almost 50% 50%
-    const _amount = parseEther("186234");
+    // // rebalance pool: put ETH in take stETH
+    // // almost 50% 50%
+    // const _amount = parseEther("186234");
+
+    // reset pool balance: put ETH in take stETH
+    // ETH's balance above 95%
+    const _amount = parseEther("500000");
+
     await stETHPool.exchange(0, 1, _amount, 0, { gasLimit: 800000, value: _amount});
     [poolb0, poolb1] = await checkPoolBalances();
-    console.log("try to rebalance pool: ", poolb0, poolb1)
+    console.log("try to rebalance pool: ", poolb0.mul(parseEther("1")).div(poolb0.add(poolb1)).div(parseEther("0.0001")))
+    console.log()
 
     while (poolb0.gt(parseEther("1"))) {
       [dyPerOne, dy, poolb0, poolb1] = await doExchange();
-      let logStr = `${dyPerOne.toString()},${dy.toString()},${poolb0.toString()},${poolb1.toString()}`
+      let ethPersent = poolb0.mul(parseEther("1")).div(poolb0.add(poolb1)).div(parseEther("0.0001")) // 100.00%
+      let logStr = `${dyPerOne.toString()},${dy.toString()},${poolb0.toString()},${poolb1.toString()},${ethPersent.toString()}`
       console.log(logStr);
       fs.writeFileSync(LOG_DIR, logStr + "\n", { flag: "a+" })
       if ((await stETHToken.balanceOf(userAddr)).lt(SELL_AMOUNT)) {
